@@ -173,7 +173,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 $npmMajor = [int](((& npm --version) -split "\.")[0])
 if ($npmMajor -ge 11) {
-    & npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty @deepseek-ai/dsh 2>&1 | Out-Null
+    & npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs @deepseek-ai/dsh 2>&1 | Out-Null
 }
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 if (-not (Get-Command dsh -ErrorAction SilentlyContinue)) {

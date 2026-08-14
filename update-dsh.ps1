@@ -38,7 +38,7 @@ for ($i = 0; $i -lt 90; $i++) {
 if ($LASTEXITCODE -eq 0) {
     $npmMajor = [int](((& npm --version 2>$null) -split "\.")[0])
     if ($npmMajor -ge 11) {
-        & npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty $Pkg 2>&1 | Out-Null
+        & npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs $Pkg 2>&1 | Out-Null
     }
 }
 
