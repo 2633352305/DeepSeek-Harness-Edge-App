@@ -1,26 +1,27 @@
 ﻿#Requires -Version 5.1
-# dsh-edge-app 一键安装: Node.js -> npm dsh -> 启动器 -> 官方图标 -> 快捷方式
+# dsh-edge-app 安装/自动更新脚本
+# 安装模式: Node.js -> npm dsh(已装且最新则跳过) -> 启动器 -> 官方图标 -> 快捷方式
+# 更新模式(-UpdateCheck): launcher.vbs 每次打开后台静默调用, 有新版自动 npm 更新
 # 用法: 双击"双击安装.bat", 或 powershell -ExecutionPolicy Bypass -File .\install.ps1
 
-param([switch]$SkipNode)
+param([switch]$SkipNode, [switch]$UpdateCheck)
 
 $ErrorActionPreference = "Continue"
+
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $AppName      = "DeepSeek Harness"
 $ShortcutName = "DeepSeek Harness.lnk"
 $Url          = "http://127.0.0.1:3080"
+$Pkg          = "@deepseek-ai/dsh"
 $InstallDir   = Join-Path $env:LOCALAPPDATA "dsh-edge-app"
+$LockFile     = Join-Path $InstallDir "update.lock"
 $MyDir        = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LauncherSrc  = Join-Path $MyDir "launcher.vbs"
 $LauncherDst  = Join-Path $InstallDir "launcher.vbs"
-$UpdateSrc    = Join-Path $MyDir "update-dsh.ps1"
-$UpdateDst    = Join-Path $InstallDir "update-dsh.ps1"
 $IconDst      = Join-Path $InstallDir "deepseek.ico"
 $Wscript      = Join-Path $env:WINDIR "System32\wscript.exe"
-
-Write-Host ""
-Write-Host "  dsh-edge-app 安装器 - DeepSeek Harness Edge 应用" -ForegroundColor Cyan
-Write-Host ""
 
 function Get-MsEdgePath {
     $reg = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe" -ErrorAction SilentlyContinue
@@ -78,7 +79,7 @@ function New-OfficialIcon {
         $svg512 = Join-Path $InstallDir "favicon-512.svg"
         [System.IO.File]::WriteAllText($svg512, $svg)
         $png512 = Join-Path $InstallDir "favicon-512.png"
-        $fileUrl = "file:///$($svg512 -replace '\\', '/')"
+        $fileUrl = (New-Object System.Uri($svg512)).AbsoluteUri
         & $edgeExe --headless --disable-gpu --default-background-color=00000000 --window-size=512,512 `
             --screenshot=$png512 $fileUrl 2>$null | Out-Null
         if (-not (Test-Path -LiteralPath $png512)) { return $false }
@@ -140,6 +141,62 @@ function Test-NodeVersion {
     return ((& node --version) -replace "v", "")
 }
 
+function Get-DshVersion {
+    $dshCmd = Get-Command dsh -ErrorAction SilentlyContinue
+    if (-not $dshCmd) { return "" }
+    try { return ((& dsh --version 2>$null) | Select-Object -Last 1).Trim() } catch { return "" }
+}
+
+function Get-LatestVersion {
+    $latest = ((& npm view $Pkg version 2>$null) | Select-Object -Last 1)
+    if ($latest) { return $latest.Trim() }
+    return ""
+}
+
+# 安装/升级 dsh 到最新版; 返回: 0=已最新, 1=安装/升级成功, -1=失败
+function Update-Dsh {
+    & npm install -g $Pkg 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { return -1 }
+    $npmMajor = [int](((& npm --version 2>$null) -split "\.")[0])
+    if ($npmMajor -ge 11) {
+        & npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs $Pkg 2>&1 | Out-Null
+    }
+    return 1
+}
+
+# ================== 更新检查模式（launcher.vbs 每次打开后台调用） ==================
+if ($UpdateCheck) {
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    $lock = $null
+    try {
+        $lock = New-Object System.IO.FileStream($LockFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    }
+    catch {
+        exit 0
+    }
+    try {
+        $local = Get-DshVersion
+        if (-not $local) { exit 0 }
+        $latest = Get-LatestVersion
+        if (-not $latest -or $latest -eq $local) { exit 0 }
+        for ($i = 0; $i -lt 90; $i++) {
+            if (Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue) { break }
+            Start-Sleep -Seconds 1
+        }
+        Update-Dsh | Out-Null
+    }
+    finally {
+        if ($lock) { $lock.Dispose() }
+        Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
+    }
+    exit 0
+}
+
+# ================== 安装模式 ==================
+Write-Host ""
+Write-Host "  dsh-edge-app 安装器 - DeepSeek Harness Edge 应用" -ForegroundColor Cyan
+Write-Host ""
+
 # 1. Node.js
 if (-not $SkipNode) {
     $nodeVer = Test-NodeVersion
@@ -164,16 +221,28 @@ if (-not $SkipNode) {
     Write-Host "[1/5] Node.js 检查通过: v$nodeVer"
 }
 
-# 2. 安装 dsh
-Write-Host "[2/5] 通过 npm 安装 DeepSeek Harness (@deepseek-ai/dsh) ..."
-& npm install -g @deepseek-ai/dsh
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[错误] npm 安装 dsh 失败，请检查网络/npm 配置" -ForegroundColor Red
-    exit 1
+# 2. 检查/安装 dsh（已安装且最新则跳过）
+$local = Get-DshVersion
+$latest = Get-LatestVersion
+if (-not $local) {
+    Write-Host "[2/5] 正在安装 DeepSeek Harness (@deepseek-ai/dsh) ..."
+    if ((Update-Dsh) -lt 0) {
+        Write-Host "[错误] npm 安装 dsh 失败，请检查网络/npm 配置" -ForegroundColor Red
+        exit 1
+    }
 }
-$npmMajor = [int](((& npm --version) -split "\.")[0])
-if ($npmMajor -ge 11) {
-    & npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs @deepseek-ai/dsh 2>&1 | Out-Null
+elseif (-not $latest) {
+    Write-Host "[2/5] [警告] 无法连接 npm 检查最新版，跳过（已安装: $local）" -ForegroundColor Yellow
+}
+elseif ($local -eq $latest) {
+    Write-Host "[2/5] 已安装且是最新版 ($local)，跳过安装"
+}
+else {
+    Write-Host "[2/5] 发现新版本: $local -> $latest，正在升级 ..."
+    if ((Update-Dsh) -lt 0) {
+        Write-Host "[错误] npm 升级 dsh 失败，请检查网络/npm 配置" -ForegroundColor Red
+        exit 1
+    }
 }
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 if (-not (Get-Command dsh -ErrorAction SilentlyContinue)) {
@@ -181,9 +250,9 @@ if (-not (Get-Command dsh -ErrorAction SilentlyContinue)) {
     exit 1
 }
 try { $dshVer = (& dsh --version 2>$null) } catch { $dshVer = "" }
-Write-Host "[2/5] dsh 安装成功: $dshVer"
+Write-Host "[2/5] dsh 就绪: $dshVer"
 
-# 3. 安装启动器/更新脚本
+# 3. 部署启动器 + 自身（供 -UpdateCheck 模式使用）
 Write-Host "[3/5] 安装无窗口启动器与自动更新脚本 ..."
 if (-not (Test-Path -LiteralPath $LauncherSrc)) {
     Write-Host "[错误] 缺少 launcher.vbs（请与 install.ps1 放在同一目录）" -ForegroundColor Red
@@ -191,9 +260,7 @@ if (-not (Test-Path -LiteralPath $LauncherSrc)) {
 }
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item -LiteralPath $LauncherSrc -Destination $LauncherDst -Force
-if (Test-Path -LiteralPath $UpdateSrc) {
-    Copy-Item -LiteralPath $UpdateSrc -Destination $UpdateDst -Force
-}
+Copy-Item -LiteralPath $MyInvocation.MyCommand.Path -Destination (Join-Path $InstallDir "install.ps1") -Force
 
 # 4. 后台启动 dsh web
 Write-Host "[4/5] 后台启动 dsh web ..."

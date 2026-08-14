@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 rem ============================================
 rem  DeepSeek Harness Edge App - One-click installer
 rem  Requires: Windows 10/11 with Microsoft Edge

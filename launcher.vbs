@@ -61,9 +61,9 @@ If Not fso.FileExists(DesktopLnk) Then
 End If
 
 ' 1) background auto-update check (async, checks on every open, does not block)
-Dim UpdatePs1 : UpdatePs1 = ScriptDir & "\update-dsh.ps1"
+Dim UpdatePs1 : UpdatePs1 = ScriptDir & "\install.ps1"
 If fso.FileExists(UpdatePs1) Then
-    shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & UpdatePs1 & """", 0, False
+    shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & UpdatePs1 & """ -UpdateCheck", 0, False
 End If
 
 ' 2) start dsh web hidden if not running, wait until ready (max 90s)
