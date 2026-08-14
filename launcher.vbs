@@ -1,6 +1,6 @@
 ' ============================================================
 ' dsh-edge-app 无窗口启动器
-' 点击 "DSH - DeepSeek Harness" 快捷方式后:
+' 点击 "DeepSeek Harness" 快捷方式后:
 '   1) 若 dsh web 未运行 -> 无窗口后台启动 (hidden cmd)
 '   2) 等待服务就绪 (最多 90 秒)
 '   3) 以 Edge 独立应用窗口打开 (--app, 非标签页)
@@ -53,7 +53,7 @@ End Function
 ' ---- 主流程 ----
 Dim edge : edge = FindEdge()
 If edge = "" Then
-    MsgBox "Microsoft Edge not found. Please install it first: https://www.microsoft.com/edge", vbExclamation, "DSH - DeepSeek Harness"
+    MsgBox "Microsoft Edge not found. Please install it first: https://www.microsoft.com/edge", vbExclamation, "DeepSeek Harness"
     WScript.Quit 1
 End If
 
@@ -69,7 +69,7 @@ If Not IsWebUp() Then
         If IsWebUp() Then Exit For
     Next
     If Not IsWebUp() Then
-        MsgBox "dsh web failed to start within 90s." & vbCrLf & "Log: " & ErrLog, vbExclamation, "DSH - DeepSeek Harness"
+        MsgBox "dsh web failed to start within 90s." & vbCrLf & "Log: " & ErrLog, vbExclamation, "DeepSeek Harness"
         WScript.Quit 1
     End If
 End If

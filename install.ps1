@@ -4,7 +4,7 @@
 # 1) 检查/安装 Node.js (>= 18，缺失时用 winget 自动安装)
 # 2) npm 全局安装 DeepSeek Harness (@deepseek-ai/dsh)
 # 3) 安装无窗口启动器 launcher.vbs 到 %LOCALAPPDATA%\dsh-edge-app\
-# 4) 创建桌面 + 开始菜单快捷方式 "DSH - DeepSeek Harness"
+# 4) 创建桌面 + 开始菜单快捷方式 "DeepSeek Harness"（鲸鱼图标）
 #    （点击后：无窗口后台启动 dsh web -> 等待就绪 ->
 #    自动打开 Edge 独立应用窗口，非标签页）
 # 5) 首次运行
@@ -21,11 +21,13 @@ param(
 $ErrorActionPreference = "Continue"
 
 $AppName     = "DeepSeek Harness"
-$ShortcutName = "DSH - DeepSeek Harness.lnk"
+$ShortcutName = "DeepSeek Harness.lnk"
 $Url         = "http://127.0.0.1:3080"
 $InstallDir  = Join-Path $env:LOCALAPPDATA "dsh-edge-app"
 $LauncherSrc = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "launcher.vbs"
 $LauncherDst = Join-Path $InstallDir "launcher.vbs"
+$IconSrc     = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "deepseek.ico"
+$IconDst     = Join-Path $InstallDir "deepseek.ico"
 $Wscript     = Join-Path $env:WINDIR "System32\wscript.exe"
 
 Write-Host ""
@@ -55,7 +57,7 @@ function New-DshShortcut {
     $sc = $ws.CreateShortcut($Path)
     $sc.TargetPath  = $Wscript
     $sc.Arguments   = "`"$LauncherDst`""
-    $sc.IconLocation = $edge
+    $sc.IconLocation = $IconDst
     $sc.Description = "$AppName - 后台启动 dsh web 并打开 Edge 独立应用窗口"
     $sc.Save()
     Write-Host "[dsh-edge-app] 已创建快捷方式: $Path"
@@ -116,14 +118,17 @@ if (-not (Get-Command dsh -ErrorAction SilentlyContinue)) {
 try { $dshVer = (& dsh --version 2>$null) } catch { $dshVer = "" }
 Write-Host "[2/5] dsh 安装成功: $dshVer"
 
-# ---------- 3. 安装启动器 ----------
-Write-Host "[3/5] 安装无窗口启动器 ..."
+# ---------- 3. 安装启动器与图标 ----------
+Write-Host "[3/5] 安装无窗口启动器与鲸鱼图标 ..."
 if (-not (Test-Path -LiteralPath $LauncherSrc)) {
     Write-Host "[错误] 缺少 launcher.vbs（请与 install.ps1 放在同一目录）" -ForegroundColor Red
     exit 1
 }
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item -LiteralPath $LauncherSrc -Destination $LauncherDst -Force
+if (Test-Path -LiteralPath $IconSrc) {
+    Copy-Item -LiteralPath $IconSrc -Destination $IconDst -Force
+}
 Write-Host "[3/5] 启动器已安装: $LauncherDst"
 
 # ---------- 4. 创建快捷方式 ----------

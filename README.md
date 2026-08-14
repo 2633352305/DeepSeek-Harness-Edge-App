@@ -1,10 +1,10 @@
-# dsh-edge-app
+﻿# dsh-edge-app
 
 [English](#english) | [中文](#中文)
 
 一键安装 [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness)，并将其 Web 界面注册为 **Edge 独立应用**（带桌面快捷方式）。
 
-点击 "DSH - DeepSeek Harness" 应用后：**无窗口后台启动** `dsh web` → 等待服务就绪 → 自动打开 **Edge 独立应用窗口**（非标签页，无地址栏），像原生应用一样使用 DeepSeek Harness 后台。
+点击 "DeepSeek Harness" 应用后：**无窗口后台启动** `dsh web` → 等待服务就绪 → 自动打开 **Edge 独立应用窗口**（非标签页，无地址栏），像原生应用一样使用 DeepSeek Harness 后台。
 
 One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness) on Windows. Registers the dsh web UI (`http://127.0.0.1:3080`) as a standalone **Edge app** with desktop shortcut: clicking the app silently starts `dsh web` in the background, waits until the service is ready, then opens a dedicated Edge app window (not a tab).
 
@@ -15,6 +15,7 @@ One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-a
 ### 特性
 
 - **一个脚本搞定**：自动检查/安装 Node.js → npm 安装官方 `@deepseek-ai/dsh` → 安装无窗口启动器 → 创建桌面 + 开始菜单快捷方式
+- 桌面快捷方式名为 **DeepSeek Harness**，使用 **DeepSeek 黑色鲸鱼图标**（来源：[LobeHub](https://github.com/lobehub/lobe-icons)）
 - 点击快捷方式 = 打开应用：**无任何窗口闪现**，静默后台启动 `dsh web`，就绪后自动弹出 Edge 独立应用窗口
 - Edge 应用形态：`msedge --app=...`，无标签栏/地址栏，独立任务栏图标
 - 日志写入 `%LOCALAPPDATA%\dsh-edge-app\`
@@ -33,14 +34,14 @@ One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-a
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-安装完成后，桌面会出现 **"DSH - DeepSeek Harness"** 快捷方式（开始菜单也有）。
+安装完成后，桌面会出现 **"DeepSeek Harness"** 快捷方式（开始菜单也有）。
 
 以后每次使用：双击该快捷方式即可——脚本会自动完成"启动服务 + 打开应用窗口"，无需再开命令行。
 
 ### 工作原理
 
 ```
-点击快捷方式 (DSH - DeepSeek Harness)
+点击快捷方式 (DeepSeek Harness)
     │  (目标: wscript.exe launcher.vbs，全程无窗口)
     ▼
 launcher.vbs 检查 http://127.0.0.1:3080 是否就绪
@@ -55,7 +56,7 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 
 | 操作 | 方式 |
 | --- | --- |
-| 打开 DSH 后台 | 双击桌面 "DSH - DeepSeek Harness" 快捷方式 |
+| 打开 DSH 后台 | 双击桌面 "DeepSeek Harness" 快捷方式 |
 | 停止后台服务 | `Stop-Process -Id (Get-NetTCPConnection -LocalPort 3080).OwningProcess -Force` |
 | 重新安装 / 更新 dsh | 重新运行 `install.bat`（npm 会自动升级） |
 | 查看运行日志 | `%LOCALAPPDATA%\dsh-edge-app\dsh-web.log` / `dsh-web.err.log` |
@@ -79,6 +80,7 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 ### Features
 
 - **One script**: checks/installs Node.js → installs official `@deepseek-ai/dsh` via npm → installs a windowless launcher → creates Desktop + Start Menu shortcuts
+- Desktop shortcut named **DeepSeek Harness** with the **black DeepSeek whale icon** (from [LobeHub](https://github.com/lobehub/lobe-icons))
 - Clicking the shortcut silently starts `dsh web` in the background (**no console window flashes**), waits until ready, then opens a standalone Edge app window
 - App-style Edge window: `msedge --app=...` — no tabs, no address bar, own taskbar icon
 - Logs: `%LOCALAPPDATA%\dsh-edge-app\`
@@ -95,7 +97,7 @@ Double-click `install.bat`, or run:
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Then just double-click the **"DSH - DeepSeek Harness"** shortcut on your desktop — it handles everything (start server + open app window).
+Then just double-click the **"DeepSeek Harness"** shortcut on your desktop — it handles everything (start server + open app window).
 
 ### How it works
 
