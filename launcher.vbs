@@ -48,7 +48,19 @@ If edge = "" Then
     WScript.Quit 1
 End If
 
-' 1) background auto-update check (async, throttled 24h, does not block)
+' 0) make sure the desktop shortcut exists, recreate it if missing
+Dim DesktopLnk : DesktopLnk = shell.SpecialFolders("Desktop") & "\DeepSeek Harness.lnk"
+If Not fso.FileExists(DesktopLnk) Then
+    Dim sc
+    Set sc = shell.CreateShortcut(DesktopLnk)
+    sc.TargetPath = shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\wscript.exe"
+    sc.Arguments = """" & WScript.ScriptFullName & """"
+    sc.IconLocation = ScriptDir & "\deepseek.ico"
+    sc.Description = "DeepSeek Harness"
+    sc.Save()
+End If
+
+' 1) background auto-update check (async, checks on every open, does not block)
 Dim UpdatePs1 : UpdatePs1 = ScriptDir & "\update-dsh.ps1"
 If fso.FileExists(UpdatePs1) Then
     shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & UpdatePs1 & """", 0, False
