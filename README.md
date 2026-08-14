@@ -11,7 +11,7 @@
 ### 特性
 
 - **点击秒开**：更新检查在后台异步执行，不阻塞打开，不弹任何窗口
-- **自动跟随官方更新**：每次点击应用都会后台静默检查 npm 上的最新版（限频 24 小时，失败自动重试 3 次×3 秒），发现新版自动更新，**无需任何操作**，更新日志见 `update.log`
+- **自动跟随官方更新**：每次打开应用都会后台静默检查 npm 最新版，发现新版自动更新，**无需任何操作**
 - **一个脚本搞定**：自动检查/安装 Node.js → npm 安装官方 `@deepseek-ai/dsh` → 安装无窗口启动器 → 创建桌面 + 开始菜单快捷方式
 - **官方图标自动获取**：安装时从 `dsh web` 页面自动提取官方 favicon（黑色鲸鱼）生成多尺寸图标，随官方版本同步；提取失败时使用默认图标（重跑安装脚本可重试）
 - 桌面快捷方式名为 **DeepSeek Harness**，点击后：后台检查更新 → 无窗口后台启动 `dsh web` → 就绪后自动打开 Edge 独立应用窗口
@@ -44,7 +44,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 点击快捷方式 (DeepSeek Harness)
     │  (目标: wscript.exe launcher.vbs，全程无窗口)
     ▼
-后台检查更新（update-dsh.ps1，异步，限频 24h，自动 npm 更新）
+后台检查更新（update-dsh.ps1，异步，每次打开都检查，自动 npm 更新）
     ▼
 launcher.vbs 检查 http://127.0.0.1:3080 是否就绪
     │  未就绪 → cmd /c dsh web（隐藏窗口后台启动，日志重定向）
@@ -80,7 +80,7 @@ One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-a
 ### Features
 
 - **Opens instantly**: update check runs in the background (async), never blocks or pops up windows
-- **Auto-updates**: every click silently checks npm for a newer version (throttled 24h, auto-retry 3×3s), installs it automatically — zero manual work; see `update.log`
+- **Auto-updates**: every open silently checks npm for the latest version and installs it automatically — zero manual work
 - **One script**: auto-installs Node.js → npm-installs official `@deepseek-ai/dsh` → deploys the windowless launcher → creates desktop + Start Menu shortcuts
 - **Official icon**: auto-extracts the official favicon (black whale) from dsh web at install time; falls back to the default icon if extraction fails (re-run the installer to retry)
 - Desktop shortcut named **DeepSeek Harness**: background update check → hidden `dsh web` start → Edge standalone app window
@@ -108,7 +108,7 @@ Then just double-click the **"DeepSeek Harness"** shortcut on your desktop — i
 ```
 Click shortcut (target: wscript.exe launcher.vbs, fully windowless)
     ▼
-background update check (update-dsh.ps1, async, throttled 24h, auto npm update)
+background update check (update-dsh.ps1, async, checks on every open, auto npm update)
     ▼
 launcher.vbs probes http://127.0.0.1:3080
     │  not ready → cmd /c dsh web (hidden window, logs redirected)
