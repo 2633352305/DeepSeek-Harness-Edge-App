@@ -14,6 +14,7 @@ One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-a
 
 ### 特性
 
+- **自动跟随官方更新**：每次点击应用都会静默检查 npm 上的最新版（限频 24 小时），发现新版自动更新，**无需任何操作**，更新日志见 `update.log`
 - **一个脚本搞定**：自动检查/安装 Node.js → npm 安装官方 `@deepseek-ai/dsh` → 安装无窗口启动器 → 创建桌面 + 开始菜单快捷方式
 - 桌面快捷方式名为 **DeepSeek Harness**，使用 **DeepSeek 黑色鲸鱼图标**（来源：[LobeHub](https://github.com/lobehub/lobe-icons)）
 - 点击快捷方式 = 打开应用：**无任何窗口闪现**，静默后台启动 `dsh web`，就绪后自动弹出 Edge 独立应用窗口
@@ -28,7 +29,7 @@ One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-a
 
 ### 快速开始
 
-双击 `install.bat`，或手动运行：
+双击 `双击安装.bat`，或手动运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -44,6 +45,8 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 点击快捷方式 (DeepSeek Harness)
     │  (目标: wscript.exe launcher.vbs，全程无窗口)
     ▼
+静默检查更新（update-dsh.ps1，限频 24h，有新版本自动 npm 更新）
+    ▼
 launcher.vbs 检查 http://127.0.0.1:3080 是否就绪
     │  未就绪 → cmd /c dsh web（隐藏窗口后台启动，日志重定向）
     ▼
@@ -58,12 +61,12 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 | --- | --- |
 | 打开 DSH 后台 | 双击桌面 "DeepSeek Harness" 快捷方式 |
 | 停止后台服务 | `Stop-Process -Id (Get-NetTCPConnection -LocalPort 3080).OwningProcess -Force` |
-| 重新安装 / 更新 dsh | 重新运行 `install.bat`（npm 会自动升级） |
+| 重新安装 / 更新 dsh | 重新运行 `双击安装.bat`（npm 会自动升级） |
 | 查看运行日志 | `%LOCALAPPDATA%\dsh-edge-app\dsh-web.log` / `dsh-web.err.log` |
 
 ### 常见问题
 
-- **执行策略限制**：请通过 `install.bat` 运行，或使用 `-ExecutionPolicy Bypass` 参数
+- **执行策略限制**：请通过 `双击安装.bat` 运行，或使用 `-ExecutionPolicy Bypass` 参数
 - **安装后找不到 `dsh` 命令**：重开终端让 PATH 生效
 - **端口 3080 被占用**：停止占用该端口的进程后再点击应用
 - **应用窗口打不开**：查看 `dsh-web.err.log`；确认 Edge 已安装
@@ -79,6 +82,7 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 
 ### Features
 
+- **Auto-follows official updates**: every app click silently checks npm for a newer version (throttled to once per 24h) and updates automatically — zero manual action; see `update.log`
 - **One script**: checks/installs Node.js → installs official `@deepseek-ai/dsh` via npm → installs a windowless launcher → creates Desktop + Start Menu shortcuts
 - Desktop shortcut named **DeepSeek Harness** with the **black DeepSeek whale icon** (from [LobeHub](https://github.com/lobehub/lobe-icons))
 - Clicking the shortcut silently starts `dsh web` in the background (**no console window flashes**), waits until ready, then opens a standalone Edge app window
@@ -91,7 +95,7 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 
 ### Quick start
 
-Double-click `install.bat`, or run:
+Double-click `双击安装.bat`, or run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -104,6 +108,8 @@ Then just double-click the **"DeepSeek Harness"** shortcut on your desktop — i
 ```
 Click shortcut (target: wscript.exe launcher.vbs, fully windowless)
     ▼
+silent update check (update-dsh.ps1, throttled 24h, auto npm update)
+    ▼
 launcher.vbs probes http://127.0.0.1:3080
     │  not ready → cmd /c dsh web (hidden window, logs redirected)
     ▼
@@ -114,7 +120,7 @@ msedge --app=http://127.0.0.1:3080  ← standalone Edge app window
 
 ### Troubleshooting
 
-- PowerShell execution policy: run via `install.bat` or add `-ExecutionPolicy Bypass`
+- PowerShell execution policy: run via `双击安装.bat` or add `-ExecutionPolicy Bypass`
 - Port 3080 occupied: stop the process listening on it, then click the app again
 - App window won't open: check `%LOCALAPPDATA%\dsh-edge-app\dsh-web.err.log`
 

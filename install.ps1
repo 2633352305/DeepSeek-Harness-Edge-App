@@ -26,6 +26,8 @@ $Url         = "http://127.0.0.1:3080"
 $InstallDir  = Join-Path $env:LOCALAPPDATA "dsh-edge-app"
 $LauncherSrc = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "launcher.vbs"
 $LauncherDst = Join-Path $InstallDir "launcher.vbs"
+$UpdateSrc   = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "update-dsh.ps1"
+$UpdateDst   = Join-Path $InstallDir "update-dsh.ps1"
 $IconSrc     = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "deepseek.ico"
 $IconDst     = Join-Path $InstallDir "deepseek.ico"
 $Wscript     = Join-Path $env:WINDIR "System32\wscript.exe"
@@ -126,6 +128,9 @@ if (-not (Test-Path -LiteralPath $LauncherSrc)) {
 }
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item -LiteralPath $LauncherSrc -Destination $LauncherDst -Force
+if (Test-Path -LiteralPath $UpdateSrc) {
+    Copy-Item -LiteralPath $UpdateSrc -Destination $UpdateDst -Force
+}
 if (Test-Path -LiteralPath $IconSrc) {
     Copy-Item -LiteralPath $IconSrc -Destination $IconDst -Force
 }

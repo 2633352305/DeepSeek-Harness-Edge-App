@@ -1,5 +1,5 @@
 @echo off
-rem dsh-edge-app 一键安装（双击运行）
+rem dsh-edge-app 双击安装（自动：装 Node.js -> 装 dsh -> 创建鲸鱼图标快捷方式 -> 启动）
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
 if errorlevel 1 (
   echo.
