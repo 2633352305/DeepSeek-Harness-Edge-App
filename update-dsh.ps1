@@ -30,10 +30,23 @@ if (Test-Path -LiteralPath $StateFile) {
 $nowEpoch = [long]((Get-Date).ToUniversalTime() - [datetime]::new(1970,1,1,0,0,0,[datetimekind]::Utc)).TotalSeconds
 if (($nowEpoch - $lastCheck) -lt ($ThrottleHours * 3600)) { exit 0 }
 
-# ---------- 获取最新版本 ----------
-$latest = (& npm view $Pkg version 2>$null | Select-Object -Last 1)
-if (-not $latest) { exit 0 }   # 网络/注册表不可用则跳过，不影响使用
-$latest = $latest.Trim()
+# ---------- 获取最新版本（失败重试 3 次，每次间隔 3 秒） ----------
+$latest = ""
+for ($attempt = 1; $attempt -le 3 -and -not $latest; $attempt++) {
+    $latest = (& npm view $Pkg version 2>$null | Select-Object -Last 1)
+    if ($latest) {
+        $latest = $latest.Trim()
+        break
+    }
+    if ($attempt -lt 3) {
+        Write-Log "检查 npm 最新版失败（第 $attempt 次），3 秒后重试"
+        Start-Sleep -Seconds 3
+    }
+}
+if (-not $latest) {
+    Write-Log "3 次检查 npm 最新版均失败，跳过本次更新检查"
+    exit 0   # 网络/注册表不可用则跳过，不影响使用
+}
 
 # ---------- 获取本地版本 ----------
 $local = ""
