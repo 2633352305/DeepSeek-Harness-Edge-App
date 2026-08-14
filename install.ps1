@@ -73,6 +73,15 @@ function New-OfficialIcon {
     try {
         Invoke-WebRequest -Uri "$Url/favicon.svg" -OutFile $svgFile -UseBasicParsing -TimeoutSec 10
     } catch { return $false }
+    $hashFile = Join-Path $InstallDir "favicon.hash"
+    if (Test-Path -LiteralPath $OutIcoPath -and (Test-Path -LiteralPath $hashFile)) {
+        $old = (Get-Content -LiteralPath $hashFile -Raw -ErrorAction SilentlyContinue).Trim()
+        $new = (Get-FileHash -LiteralPath $svgFile -Algorithm MD5).Hash
+        if ($old -and $old -eq $new) {
+            Write-Host "      图标未变化，使用现有图标（跳过生成）"
+            return $true
+        }
+    }
     try {
         $svg = [System.IO.File]::ReadAllText($svgFile)
         $svg = $svg -replace 'width="[0-9.]+"', 'width="512"' -replace 'height="[0-9.]+"', 'height="512"'
@@ -116,6 +125,7 @@ function New-OfficialIcon {
         foreach ($p in $pngs) { $bw.Write($p) }
         $bw.Flush()
         [System.IO.File]::WriteAllBytes($OutIcoPath, $ms.ToArray())
+        [System.IO.File]::WriteAllText($hashFile, (Get-FileHash -LiteralPath $svgFile -Algorithm MD5).Hash)
         Remove-Item -LiteralPath $svg512, $png512 -Force -ErrorAction SilentlyContinue
         return (Test-Path -LiteralPath $OutIcoPath)
     } catch {
@@ -154,14 +164,25 @@ function Get-LatestVersion {
 }
 
 # 安装/升级 dsh 到最新版; 返回: 0=已最新, 1=安装/升级成功, -1=失败
+# 优化: npm>=11 一次完成(带 allow-scripts); 官方源失败自动 npmmirror 重试; 安装模式可见进度, 更新模式静默
 function Update-Dsh {
-    & npm install -g $Pkg 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { return -1 }
+    param([bool]$Quiet = $true)
     $npmMajor = [int](((& npm --version 2>$null) -split "\.")[0])
+    $base = @("install", "-g")
     if ($npmMajor -ge 11) {
-        & npm install -g --allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs $Pkg 2>&1 | Out-Null
+        $base += "--allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs"
     }
-    return 1
+    foreach ($reg in @("", "https://registry.npmmirror.com")) {
+        $npmArgs = @($base)
+        if ($reg) { $npmArgs += "--registry=$reg" }
+        $npmArgs += $Pkg
+        if ($Quiet) { & npm @npmArgs 2>&1 | Out-Null } else { & npm @npmArgs }
+        if ($LASTEXITCODE -eq 0) { return 1 }
+        if (-not $Quiet -and $reg) {
+            Write-Host "      官方源失败，改用 npmmirror 镜像重试 ..." -ForegroundColor Yellow
+        }
+    }
+    return -1
 }
 
 # ================== 更新检查模式（launcher.vbs 每次打开后台调用） ==================
@@ -226,7 +247,7 @@ $local = Get-DshVersion
 $latest = Get-LatestVersion
 if (-not $local) {
     Write-Host "[2/5] 正在安装 DeepSeek Harness (@deepseek-ai/dsh) ..."
-    if ((Update-Dsh) -lt 0) {
+    if ((Update-Dsh -Quiet $false) -lt 0) {
         Write-Host "[错误] npm 安装 dsh 失败，请检查网络/npm 配置" -ForegroundColor Red
         exit 1
     }
@@ -239,7 +260,7 @@ elseif ($local -eq $latest) {
 }
 else {
     Write-Host "[2/5] 发现新版本: $local -> $latest，正在升级 ..."
-    if ((Update-Dsh) -lt 0) {
+    if ((Update-Dsh -Quiet $false) -lt 0) {
         Write-Host "[错误] npm 升级 dsh 失败，请检查网络/npm 配置" -ForegroundColor Red
         exit 1
     }
