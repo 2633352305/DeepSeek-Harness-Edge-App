@@ -1,16 +1,12 @@
-# dsh-edge-app
+# DeepSeek Harness
 
-[English](#english) | [中文](#中文)
+中文 | [English](#english)
+
+## 中文
 
 一键安装 [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness)，并将其 Web 界面注册为 **Edge 独立应用**（带桌面快捷方式）。
 
 点击 "DeepSeek Harness" 应用后：**后台异步检查更新** → **无窗口后台启动** `dsh web` → 等待服务就绪 → 自动打开 **Edge 独立应用窗口**（非标签页，无地址栏），像原生应用一样使用 DeepSeek Harness 后台。
-
-One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness) on Windows. Registers the dsh web UI (`http://127.0.0.1:3080`) as a standalone **Edge app** with desktop shortcut: clicking the app checks for updates in the background, silently starts `dsh web`, waits until the service is ready, then opens a dedicated Edge app window (not a tab).
-
----
-
-## 中文
 
 ### 特性
 
@@ -78,6 +74,8 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 ---
 
 ## English
+
+One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness) on Windows. Registers the dsh web UI (`http://127.0.0.1:3080`) as a standalone **Edge app** with desktop shortcut: clicking the app checks for updates in the background, silently starts `dsh web`, waits until the service is ready, then opens a dedicated Edge app window (not a tab).
 
 ### Features
 
