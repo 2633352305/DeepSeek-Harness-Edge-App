@@ -1,12 +1,5 @@
-' ============================================================
-' dsh-edge-app windowless launcher
-' Clicking the "DeepSeek Harness" shortcut:
-'   0) silent auto-update check for @deepseek-ai/dsh (throttled 24h)
-'   1) if dsh web is not running -> start it in a hidden window
-'   2) wait until the service is ready (max 90 seconds)
-'   3) open Edge standalone app window (--app, not a tab)
-' No console windows at all; logs are written next to this file
-' ============================================================
+' dsh-edge-app windowless launcher (shortcut target: wscript.exe)
+' click: bg auto-update check -> start dsh web hidden -> open Edge standalone app window
 Option Explicit
 
 Dim fso : Set fso = CreateObject("Scripting.FileSystemObject")
@@ -16,7 +9,6 @@ Dim Url : Url = "http://127.0.0.1:3080"
 Dim OutLog : OutLog = ScriptDir & "\dsh-web.log"
 Dim ErrLog : ErrLog = ScriptDir & "\dsh-web.err.log"
 
-' ---- check whether dsh web is already up ----
 Function IsWebUp()
     IsWebUp = False
     On Error Resume Next
@@ -28,7 +20,6 @@ Function IsWebUp()
     On Error GoTo 0
 End Function
 
-' ---- locate msedge.exe ----
 Function FindEdge()
     Dim p, cands, i
     On Error Resume Next
@@ -51,27 +42,21 @@ Function FindEdge()
     FindEdge = ""
 End Function
 
-' ---- main flow ----
 Dim edge : edge = FindEdge()
 If edge = "" Then
     MsgBox "Microsoft Edge not found. Please install it first: https://www.microsoft.com/edge", vbExclamation, "DeepSeek Harness"
     WScript.Quit 1
 End If
 
-' 0) background auto-update check (async, throttled 24h; auto-updates if newer)
-'    does NOT block: the app window opens right away
+' 1) background auto-update check (async, throttled 24h, does not block)
 Dim UpdatePs1 : UpdatePs1 = ScriptDir & "\update-dsh.ps1"
 If fso.FileExists(UpdatePs1) Then
     shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & UpdatePs1 & """", 0, False
 End If
 
-' 1) make sure dsh web is running
+' 2) start dsh web hidden if not running, wait until ready (max 90s)
 If Not IsWebUp() Then
-    ' start dsh web in a hidden window, redirect output to logs
-    Dim cmd : cmd = "cmd /c dsh web >> """ & OutLog & """ 2>> """ & ErrLog & """"
-    shell.Run cmd, 0, False
-
-    ' 2) wait until ready (max 90 seconds)
+    shell.Run "cmd /c dsh web >> """ & OutLog & """ 2>> """ & ErrLog & """", 0, False
     Dim i
     For i = 1 To 90
         WScript.Sleep 1000

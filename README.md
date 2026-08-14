@@ -47,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 点击快捷方式 (DeepSeek Harness)
     │  (目标: wscript.exe launcher.vbs，全程无窗口)
     ▼
-静默检查更新（update-dsh.ps1，限频 24h，有新版本自动 npm 更新）
+后台检查更新（update-dsh.ps1，异步，限频 24h，自动 npm 更新）
     ▼
 launcher.vbs 检查 http://127.0.0.1:3080 是否就绪
     │  未就绪 → cmd /c dsh web（隐藏窗口后台启动，日志重定向）
@@ -73,10 +73,6 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 - **端口 3080 被占用**：停止占用该端口的进程后再点击应用
 - **应用窗口打不开**：查看 `dsh-web.err.log`；确认 Edge 已安装
 - **卸载**：删除桌面/开始菜单快捷方式，`npm uninstall -g @deepseek-ai/dsh`，删除 `%LOCALAPPDATA%\dsh-edge-app\`
-
-### 许可证
-
-[MIT](LICENSE)
 
 ---
 
@@ -109,7 +105,7 @@ Then just double-click the **"DeepSeek Harness"** shortcut on your desktop — i
 ```
 Click shortcut (target: wscript.exe launcher.vbs, fully windowless)
     ▼
-silent update check (update-dsh.ps1, throttled 24h, auto npm update)
+background update check (update-dsh.ps1, async, throttled 24h, auto npm update)
     ▼
 launcher.vbs probes http://127.0.0.1:3080
     │  not ready → cmd /c dsh web (hidden window, logs redirected)
@@ -124,7 +120,3 @@ msedge --app=http://127.0.0.1:3080  ← standalone Edge app window
 - PowerShell execution policy: run via `双击安装.bat` or add `-ExecutionPolicy Bypass`
 - Port 3080 occupied: stop the process listening on it, then click the app again
 - App window won't open: check `%LOCALAPPDATA%\dsh-edge-app\dsh-web.err.log`
-
-### License
-
-[MIT](LICENSE)
