@@ -1,5 +1,5 @@
 ﻿# ============================================================
-# dsh-edge-app 自动更新检查（由 launcher.vbs 静默调用）
+# dsh-edge-app 自动更新检查（由 launcher.vbs 静默后台调用，不阻塞打开）
 # - 限频：24 小时内最多检查一次（state 文件记录时间）
 # - 有新版本时自动 npm 更新，无需任何操作
 # - 全程静默无窗口，日志写入 update.log
@@ -11,6 +11,7 @@ $ErrorActionPreference = "Continue"
 $InstallDir     = Join-Path $env:LOCALAPPDATA "dsh-edge-app"
 $StateFile      = Join-Path $InstallDir "update-state.txt"
 $LogFile        = Join-Path $InstallDir "update.log"
+$LockFile       = Join-Path $InstallDir "update.lock"
 $Pkg            = "@deepseek-ai/dsh"
 $ThrottleHours  = 24
 
@@ -20,6 +21,17 @@ function Write-Log {
     param([string]$Message)
     Add-Content -LiteralPath $LogFile -Value ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message)
 }
+
+# ---------- 并发保护：同一时间只允许一个更新进程 ----------
+$lock = $null
+try {
+    $lock = New-Object System.IO.FileStream($LockFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+}
+catch {
+    exit 0   # 已有更新进程在运行，本次直接跳过
+}
+
+try {
 
 # ---------- 限频检查 ----------
 $lastCheck = 0
@@ -58,6 +70,11 @@ if (-not $local) { exit 0 }    # dsh 未安装则跳过（安装器负责）
 
 # ---------- 有新版则更新 ----------
 if ($local -ne $latest) {
+    # 等待 dsh web 完全启动（端口就绪）后再更新，避免与正在启动的服务竞争文件
+    for ($i = 0; $i -lt 90; $i++) {
+        if (Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue) { break }
+        Start-Sleep -Seconds 1
+    }
     Write-Log "发现新版本: $local -> $latest，开始自动更新 ..."
     & npm install -g $Pkg 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
@@ -74,4 +91,11 @@ if ($local -ne $latest) {
 
 # ---------- 记录检查时间 ----------
 Set-Content -LiteralPath $StateFile -Value ($nowEpoch.ToString())
+
+}   # end of lock scope
+
+finally {
+    if ($lock) { $lock.Dispose() }
+    Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
+}
 exit 0

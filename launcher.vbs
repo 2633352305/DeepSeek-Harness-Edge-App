@@ -58,10 +58,11 @@ If edge = "" Then
     WScript.Quit 1
 End If
 
-' 0) silent auto-update check (throttled 24h, no window; auto-updates if newer)
+' 0) background auto-update check (async, throttled 24h; auto-updates if newer)
+'    does NOT block: the app window opens right away
 Dim UpdatePs1 : UpdatePs1 = ScriptDir & "\update-dsh.ps1"
 If fso.FileExists(UpdatePs1) Then
-    shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & UpdatePs1 & """", 0, True
+    shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & UpdatePs1 & """", 0, False
 End If
 
 ' 1) make sure dsh web is running
