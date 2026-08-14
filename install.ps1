@@ -15,7 +15,6 @@ $LauncherSrc  = Join-Path $MyDir "launcher.vbs"
 $LauncherDst  = Join-Path $InstallDir "launcher.vbs"
 $UpdateSrc    = Join-Path $MyDir "update-dsh.ps1"
 $UpdateDst    = Join-Path $InstallDir "update-dsh.ps1"
-$FallbackIco  = Join-Path $MyDir "deepseek.ico"
 $IconDst      = Join-Path $InstallDir "deepseek.ico"
 $Wscript      = Join-Path $env:WINDIR "System32\wscript.exe"
 
@@ -129,7 +128,7 @@ function New-DshShortcut {
     $sc = $ws.CreateShortcut($Path)
     $sc.TargetPath  = $Wscript
     $sc.Arguments   = "`"$LauncherDst`""
-    $sc.IconLocation = $Icon
+    if ($Icon -and (Test-Path -LiteralPath $Icon)) { $sc.IconLocation = $Icon }
     $sc.Description = "$AppName - 点击后: 后台更新 dsh -> 启动 dsh web -> 打开 Edge 独立窗口"
     $sc.Save()
     Write-Host "[dsh-edge-app] 已创建快捷方式: $Path"
@@ -212,14 +211,13 @@ if (-not $edge) {
     Write-Host "[错误] 未找到 Microsoft Edge，请先安装: https://www.microsoft.com/edge" -ForegroundColor Red
     exit 1
 }
-$icon = $FallbackIco
+$icon = ""
 if (New-OfficialIcon -OutIcoPath $IconDst) {
     $icon = $IconDst
     Write-Host "      图标: 已从 dsh web 自动提取官方 favicon"
 }
-elseif (Test-Path -LiteralPath $FallbackIco) {
-    Copy-Item -LiteralPath $FallbackIco -Destination $IconDst -Force
-    Write-Host "      图标: 使用内置回退"
+else {
+    Write-Host "      图标: 提取失败，使用默认图标（重新运行安装脚本可重试）" -ForegroundColor Yellow
 }
 $desktop = [Environment]::GetFolderPath('Desktop')
 New-DshShortcut -Path (Join-Path $desktop $ShortcutName) -Icon $icon
