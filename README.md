@@ -16,8 +16,8 @@ One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-a
 
 - **自动跟随官方更新**：每次点击应用都会静默检查 npm 上的最新版（限频 24 小时），发现新版自动更新，**无需任何操作**，更新日志见 `update.log`
 - **一个脚本搞定**：自动检查/安装 Node.js → npm 安装官方 `@deepseek-ai/dsh` → 安装无窗口启动器 → 创建桌面 + 开始菜单快捷方式
-- 桌面快捷方式名为 **DeepSeek Harness**，使用 **DeepSeek 黑色鲸鱼图标**（来源：[LobeHub](https://github.com/lobehub/lobe-icons)）
-- 点击快捷方式 = 打开应用：**无任何窗口闪现**，静默后台启动 `dsh web`，就绪后自动弹出 Edge 独立应用窗口
+- **官方图标自动获取**：安装时从 `dsh web` 页面自动提取官方 favicon（黑色鲸鱼）生成多尺寸图标，随官方版本同步，无需第三方图标；无法连接时回退内置图标
+- 桌面快捷方式名为 **DeepSeek Harness**，点击后：静默检查更新 → 无窗口后台启动 `dsh web` → 就绪后自动打开 Edge 独立应用窗口
 - Edge 应用形态：`msedge --app=...`，无标签栏/地址栏，独立任务栏图标
 - 日志写入 `%LOCALAPPDATA%\dsh-edge-app\`
 
@@ -37,7 +37,9 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 安装完成后，桌面会出现 **"DeepSeek Harness"** 快捷方式（开始菜单也有）。
 
-以后每次使用：双击该快捷方式即可——脚本会自动完成"启动服务 + 打开应用窗口"，无需再开命令行。
+以后每次使用：双击该快捷方式即可——脚本会自动完成"检查更新 + 启动服务 + 打开应用窗口"，无需再开命令行。
+
+> **关于"在 Edge 里安装为应用"**：dsh web 本身就是标准 PWA（自带 `manifest.webmanifest`）。如想要系统级的 Edge 应用条目（`edge://apps` 列表、可单独卸载），可在 Edge 中打开 http://127.0.0.1:3080 后点击地址栏的"安装应用"按钮——图标同样自动使用官方鲸鱼图标。本项目的桌面快捷方式已等效实现独立应用窗口体验，且额外具备"自动更新 + 后台启动"能力（Edge 应用条目本身不提供启动服务的能力）。
 
 ### 工作原理
 
@@ -83,9 +85,8 @@ msedge --app=http://127.0.0.1:3080  ← 独立应用窗口打开 DSH 后台
 ### Features
 
 - **Auto-follows official updates**: every app click silently checks npm for a newer version (throttled to once per 24h) and updates automatically — zero manual action; see `update.log`
-- **One script**: checks/installs Node.js → installs official `@deepseek-ai/dsh` via npm → installs a windowless launcher → creates Desktop + Start Menu shortcuts
-- Desktop shortcut named **DeepSeek Harness** with the **black DeepSeek whale icon** (from [LobeHub](https://github.com/lobehub/lobe-icons))
-- Clicking the shortcut silently starts `dsh web` in the background (**no console window flashes**), waits until ready, then opens a standalone Edge app window
+- **Official icon auto-extracted**: the installer grabs the official favicon (black whale) straight from the running `dsh web` page and builds a multi-size icon — no third-party icons; falls back to the bundled icon when offline
+- Desktop shortcut named **DeepSeek Harness**: click it → silent update check → hidden background start of `dsh web` → standalone Edge app window opens automatically
 - App-style Edge window: `msedge --app=...` — no tabs, no address bar, own taskbar icon
 - Logs: `%LOCALAPPDATA%\dsh-edge-app\`
 
