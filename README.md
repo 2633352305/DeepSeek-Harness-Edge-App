@@ -4,25 +4,23 @@
 
 ## 中文
 
-一键安装 [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness)，并将其 Web 界面注册为 **Edge 独立应用**（带桌面快捷方式）。
+一键安装 [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness)，并将其 Web 界面注册为 **Edge 独立应用**（桌面快捷方式）。
 
-点击 "DeepSeek Harness" 应用后：**后台异步检查更新** → **无窗口后台启动** `dsh web` → 等待服务就绪 → 自动打开 **Edge 独立应用窗口**（非标签页，无地址栏），像原生应用一样使用 DeepSeek Harness 后台。
+点击 "DeepSeek Harness" 应用后：像原生应用一样使用 DeepSeek Harness 后台，体积极小，无需额外封装，仅作为Edge快捷方式，一键打开终端与独立网页。
 
 ### 特性
 
-- **点击秒开**：更新检查在后台异步执行，不阻塞打开，不弹任何窗口
-- **自动跟随官方更新**：每次打开应用都会后台静默检查 npm 最新版，发现新版自动更新，**无需任何操作**
+- **自动跟随官方更新**：每次打开应用都会检查DeepSeek Harness官方最新版并自动更新，无需其他**无需任何操作**
+- - **点击秒开**：更新检查在后台异步执行，不阻塞打开，不弹任何窗口
 - **一个脚本搞定**：自动检查/安装 Node.js → 检查 dsh（**已安装且为最新版则跳过**，否则自动安装/升级）→ 安装无窗口启动器 → 创建桌面 + 开始菜单快捷方式
 - **官方图标自动获取**：安装时从 `dsh web` 页面自动提取官方 favicon（黑色鲸鱼）生成多尺寸图标，随官方版本同步；提取失败时使用默认图标（重跑安装脚本可重试）
 - 桌面快捷方式名为 **DeepSeek Harness**，点击后：后台检查更新 → 无窗口后台启动 `dsh web` → 就绪后自动打开 Edge 独立应用窗口
 - Edge 应用形态：`msedge --app=...`，无标签栏/地址栏，独立任务栏图标
 - 日志写入 `%LOCALAPPDATA%\dsh-edge-app\`
 
-### 环境要求
+### 要求
 
-- Windows 10/11
-- Microsoft Edge（系统自带）
-- Node.js >= 18（缺失时脚本会用 winget 自动安装）
+- **Microsoft Edge**（系统自带）
 
 ### 快速开始
 
