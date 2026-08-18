@@ -1,4 +1,4 @@
-' dsh-edge-app windowless launcher (shortcut target: wscript.exe)
+' dsh-edge-app windowless launcher (shortcut target: wscript.exe //B launcher.vbs)
 ' click: bg auto-update check -> start dsh web hidden -> open Edge standalone app window
 Option Explicit
 
@@ -16,7 +16,7 @@ Function IsWebUp()
     http.Open "GET", Url, False
     http.SetTimeouts 1500, 1500, 1500, 1500
     http.Send
-    If Err.Number = 0 Then IsWebUp = True
+    If Err.Number = 0 And http.Status = 200 Then IsWebUp = True
     On Error GoTo 0
 End Function
 
@@ -44,38 +44,41 @@ End Function
 
 Dim edge : edge = FindEdge()
 If edge = "" Then
-    MsgBox "Microsoft Edge not found. Please install it first: https://www.microsoft.com/edge", vbExclamation, "DeepSeek Harness"
+    fso.CreateTextFile(ErrLog, True).WriteLine "ERROR: Microsoft Edge not found. Please install it first: https://www.microsoft.com/edge"
     WScript.Quit 1
 End If
 
-' 0) make sure the desktop shortcut exists, recreate it if missing
-Dim DesktopLnk : DesktopLnk = shell.SpecialFolders("Desktop") & "\DeepSeek Harness.lnk"
-If Not fso.FileExists(DesktopLnk) Then
-    Dim sc
-    Set sc = shell.CreateShortcut(DesktopLnk)
-    sc.TargetPath = shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\wscript.exe"
-    sc.Arguments = """" & WScript.ScriptFullName & """"
-    sc.IconLocation = ScriptDir & "\deepseek.ico"
-    sc.Description = "DeepSeek Harness"
-    sc.Save()
+' 0) make sure shortcuts exist, recreate if missing (desktop + start menu)
+Dim Ps1File : Ps1File = ScriptDir & "\install.ps1"
+Dim lnk, i
+For i = 1 To 2
+    If i = 1 Then
+        lnk = shell.SpecialFolders("Desktop") & "\DeepSeek Harness.lnk"
+    Else
+        lnk = shell.SpecialFolders("Programs") & "\DeepSeek Harness.lnk"
+    End If
+    If Not fso.FileExists(lnk) Then
+        Dim sc
+        Set sc = shell.CreateShortcut(lnk)
+        sc.TargetPath = shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\wscript.exe"
+        sc.Arguments = "//B """ & WScript.ScriptFullName & """"
+        sc.IconLocation = ScriptDir & "\deepseek.ico"
+        sc.Description = "DeepSeek Harness"
+        sc.Save()
+    End If
+Next
+
+' 1) update check: async when service is already running (skips install, opens instantly);
+'    synchronous on cold start so a pending update installs safely BEFORE the service starts
+If fso.FileExists(Ps1File) Then
+    shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & Ps1File & """ -UpdateCheck", 0, (Not IsWebUp())
 End If
 
-' 1) background auto-update check (async, checks on every open, does not block)
-Dim UpdatePs1 : UpdatePs1 = ScriptDir & "\install.ps1"
-If fso.FileExists(UpdatePs1) Then
-    shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & UpdatePs1 & """ -UpdateCheck", 0, False
-End If
-
-' 2) start dsh web hidden if not running, wait until ready (max 90s)
+' 2) start dsh web hidden if not running (lock-protected, waits until ready)
 If Not IsWebUp() Then
-    shell.Run "cmd /c dsh web >> """ & OutLog & """ 2>> """ & ErrLog & """", 0, False
-    Dim i
-    For i = 1 To 90
-        WScript.Sleep 1000
-        If IsWebUp() Then Exit For
-    Next
+    shell.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & Ps1File & """ -StartService", 0, True
     If Not IsWebUp() Then
-        MsgBox "dsh web failed to start within 90s." & vbCrLf & "Log: " & ErrLog, vbExclamation, "DeepSeek Harness"
+        fso.CreateTextFile(ErrLog, True).WriteLine "ERROR: dsh web failed to start within 90s. See log: " & OutLog
         WScript.Quit 1
     End If
 End If

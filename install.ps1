@@ -1,10 +1,11 @@
 ﻿#Requires -Version 5.1
-# dsh-edge-app 安装/自动更新脚本
+# dsh-edge-app 安装/自动更新/服务启动脚本
 # 安装模式: Node.js -> npm dsh(已装且最新则跳过) -> 启动器 -> 官方图标 -> 快捷方式
 # 更新模式(-UpdateCheck): launcher.vbs 每次打开后台静默调用, 有新版自动 npm 更新
+# 服务模式(-StartService): launcher.vbs 调用, 占锁后启动 dsh web 并等待就绪(避免与升级并发)
 # 用法: 双击"双击安装.bat", 或 powershell -ExecutionPolicy Bypass -File .\install.ps1
 
-param([switch]$SkipNode, [switch]$UpdateCheck)
+param([switch]$SkipNode, [switch]$UpdateCheck, [switch]$StartService)
 
 $ErrorActionPreference = "Continue"
 
@@ -39,9 +40,34 @@ function Get-MsEdgePath {
 function Test-DshWeb {
     $conn = Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue
     if ($conn) {
-        try { $null = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3; return $true } catch {}
+        try {
+            $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+            if ($resp.StatusCode -eq 200) { return $true }
+        } catch {}
     }
     return $false
+}
+
+function Refresh-Path {
+    $m = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $u = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $old = $env:Path
+    $env:Path = "$m;$u;$old"
+}
+
+function Acquire-Lock {
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    try {
+        return New-Object System.IO.FileStream($LockFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    } catch {
+        return $null
+    }
+}
+
+function Release-Lock {
+    param($lock)
+    if ($lock) { $lock.Dispose() }
+    Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
 }
 
 function Start-DshWebBackground {
@@ -82,16 +108,20 @@ function New-OfficialIcon {
             return $true
         }
     }
+    $svg512 = ""; $png512 = ""
     try {
         $svg = [System.IO.File]::ReadAllText($svgFile)
-        $svg = $svg -replace 'width="[0-9.]+"', 'width="512"' -replace 'height="[0-9.]+"', 'height="512"'
+        $svg = $svg -replace '(<svg[^>]*\bwidth=")[^"]*(")', '${1}512${2}' `
+                   -replace '(<svg[^>]*\bheight=")[^"]*(")', '${1}512${2}'
         $svg512 = Join-Path $InstallDir "favicon-512.svg"
         [System.IO.File]::WriteAllText($svg512, $svg)
         $png512 = Join-Path $InstallDir "favicon-512.png"
         $fileUrl = (New-Object System.Uri($svg512)).AbsoluteUri
-        & $edgeExe --headless --disable-gpu --default-background-color=00000000 --window-size=512,512 `
-            --screenshot=$png512 $fileUrl 2>$null | Out-Null
-        if (-not (Test-Path -LiteralPath $png512)) { return $false }
+        $tempDir = Join-Path $env:TEMP ("dsh-icon-" + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        & cmd /c "`"$edgeExe`" --headless --disable-gpu --default-background-color=00000000 --window-size=512,512 --user-data-dir=`"$tempDir`" --screenshot=`"$png512`" `"$fileUrl`"" 2>$null | Out-Null
+        Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path -LiteralPath $png512) -or (Get-Item -LiteralPath $png512 -ErrorAction SilentlyContinue).Length -le 0) { return $false }
 
         $src = New-Object System.Drawing.Bitmap($png512)
         $sizes = @(16, 24, 32, 48, 64, 128, 256)
@@ -126,10 +156,11 @@ function New-OfficialIcon {
         $bw.Flush()
         [System.IO.File]::WriteAllBytes($OutIcoPath, $ms.ToArray())
         [System.IO.File]::WriteAllText($hashFile, (Get-FileHash -LiteralPath $svgFile -Algorithm MD5).Hash)
-        Remove-Item -LiteralPath $svg512, $png512 -Force -ErrorAction SilentlyContinue
         return (Test-Path -LiteralPath $OutIcoPath)
     } catch {
         return $false
+    } finally {
+        Remove-Item -LiteralPath $svg512, $png512 -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -138,7 +169,7 @@ function New-DshShortcut {
     $ws = New-Object -ComObject WScript.Shell
     $sc = $ws.CreateShortcut($Path)
     $sc.TargetPath  = $Wscript
-    $sc.Arguments   = "`"$LauncherDst`""
+    $sc.Arguments   = "//B `"$LauncherDst`""
     if ($Icon -and (Test-Path -LiteralPath $Icon)) { $sc.IconLocation = $Icon }
     $sc.Description = "$AppName - 点击后: 后台更新 dsh -> 启动 dsh web -> 打开 Edge 独立窗口"
     $sc.Save()
@@ -154,21 +185,53 @@ function Test-NodeVersion {
 function Get-DshVersion {
     $dshCmd = Get-Command dsh -ErrorAction SilentlyContinue
     if (-not $dshCmd) { return "" }
-    try { return ((& dsh --version 2>$null) | Select-Object -Last 1).Trim() } catch { return "" }
+    try {
+        $out = (& dsh --version 2>$null) | Select-Object -Last 1
+        $m = [regex]::Match([string]$out, '\d+\.\d+\.\d+[-0-9A-Za-z.]*')
+        if ($m.Success) { return $m.Value }
+    } catch {}
+    return ""
 }
 
 function Get-LatestVersion {
-    $latest = ((& npm view $Pkg version 2>$null) | Select-Object -Last 1)
-    if ($latest) { return $latest.Trim() }
+    foreach ($reg in @("", "https://registry.npmmirror.com")) {
+        $latest = ""
+        if ($reg) { $latest = (& npm view $Pkg version --fetch-timeout=60000 --registry=$reg 2>$null) }
+        else { $latest = (& npm view $Pkg version --fetch-timeout=60000 2>$null) }
+        $latest = [string](($latest | Select-Object -Last 1))
+        if ($latest) {
+            $m = [regex]::Match($latest.Trim(), '\d+\.\d+\.\d+[-0-9A-Za-z.]*')
+            if ($m.Success) { return $m.Value }
+        }
+    }
     return ""
+}
+
+function Stop-DshWebProcess {
+    $conn = Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue
+    if (-not $conn) { return $false }
+    $stopped = $false
+    foreach ($c in $conn) {
+        $proc = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
+        if (-not $proc) { continue }
+        if ($proc.ProcessName -notmatch "node|dsh|cmd") { continue }
+        try { Stop-Process -Id $c.OwningProcess -Force -ErrorAction Stop; $stopped = $true } catch {}
+    }
+    for ($i = 0; $i -lt 20; $i++) {
+        if (-not (Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue)) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    return $stopped
 }
 
 # 安装/升级 dsh 到最新版; 返回: 0=已最新, 1=安装/升级成功, -1=失败
 # 优化: npm>=11 一次完成(带 allow-scripts); 官方源失败自动 npmmirror 重试; 安装模式可见进度, 更新模式静默
 function Update-Dsh {
     param([bool]$Quiet = $true)
-    $npmMajor = [int](((& npm --version 2>$null) -split "\.")[0])
-    $base = @("install", "-g")
+    $npmMajor = 0
+    $npmVer = (& npm --version 2>$null) | Select-Object -Last 1
+    if ($npmVer -match "^\d+") { $npmMajor = [int]$Matches[0] }
+    $base = @("install", "-g", "--fetch-timeout=120000")
     if ($npmMajor -ge 11) {
         $base += "--allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs"
     }
@@ -187,33 +250,49 @@ function Update-Dsh {
 
 # ================== 更新检查模式（launcher.vbs 每次打开后台调用） ==================
 if ($UpdateCheck) {
-    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    $lock = $null
+    $lock = Acquire-Lock
+    if (-not $lock) { exit 0 }
     try {
-        $lock = New-Object System.IO.FileStream($LockFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
-    }
-    catch {
-        exit 0
-    }
-    try {
+        Refresh-Path
         $local = Get-DshVersion
         if (-not $local) { exit 0 }
         $latest = Get-LatestVersion
         if (-not $latest -or $latest -eq $local) { exit 0 }
-        for ($i = 0; $i -lt 90; $i++) {
-            if (Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue) { break }
-            Start-Sleep -Seconds 1
+        if (Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue) { exit 0 }
+        $r = Update-Dsh
+        if ($r -lt 0) { $r = Update-Dsh }
+        if ($r -lt 0) {
+            try { Add-Content -LiteralPath (Join-Path $InstallDir "dsh-update.log") -Value ("[{0}] 自动升级失败: $local -> $latest (npm 安装失败)" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss")) -Encoding UTF8 } catch {}
         }
-        Update-Dsh | Out-Null
     }
     finally {
-        if ($lock) { $lock.Dispose() }
-        Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
+        Release-Lock $lock
     }
     exit 0
 }
 
+# ================== 服务启动模式（launcher.vbs 调用，占锁避免与升级并发） ==================
+if ($StartService) {
+    $lock = Acquire-Lock
+    if (-not $lock) { exit 0 }
+    try {
+        if (Test-DshWeb) { exit 0 }
+        Refresh-Path
+        if (Start-DshWebBackground -and (Wait-DshWeb)) { exit 0 }
+        exit 1
+    }
+    finally {
+        Release-Lock $lock
+    }
+}
+
 # ================== 安装模式 ==================
+$lock = Acquire-Lock
+if (-not $lock) {
+    Write-Host "[错误] 另一个安装/更新正在进行中，请稍后重试" -ForegroundColor Red
+    exit 1
+}
+try {
 Write-Host ""
 Write-Host "  dsh-edge-app 安装器 - DeepSeek Harness Edge 应用" -ForegroundColor Cyan
 Write-Host ""
@@ -226,7 +305,7 @@ if (-not $SkipNode) {
         $winget = Get-Command winget -ErrorAction SilentlyContinue
         if ($winget) {
             winget install --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            Refresh-Path
             $nodeVer = Test-NodeVersion
         }
         if (-not $nodeVer) {
@@ -234,7 +313,8 @@ if (-not $SkipNode) {
             exit 1
         }
     }
-    $major = [int](($nodeVer -split "\.")[0])
+    $major = 0
+    if ($nodeVer -match "^\d+") { $major = [int]$Matches[0] }
     if ($major -lt 18) {
         Write-Host "[错误] Node.js 版本过低 (v$nodeVer)，需要 >= 18: https://nodejs.org" -ForegroundColor Red
         exit 1
@@ -253,19 +333,23 @@ if (-not $local) {
     }
 }
 elseif (-not $latest) {
-    Write-Host "[2/5] [警告] 无法连接 npm 检查最新版，跳过（已安装: $local）" -ForegroundColor Yellow
+    Write-Host "[2/5] [警告] 无法连接 npm 检查最新版（网络异常），跳过版本检查（已安装: $local）" -ForegroundColor Yellow
 }
 elseif ($local -eq $latest) {
     Write-Host "[2/5] 已安装且是最新版 ($local)，跳过安装"
 }
 else {
+    if (Test-DshWeb) {
+        Write-Host "      检测到 dsh web 正在运行，先停止以便安全升级（完成后自动重启）..." -ForegroundColor Yellow
+        Stop-DshWebProcess
+    }
     Write-Host "[2/5] 发现新版本: $local -> $latest，正在升级 ..."
     if ((Update-Dsh -Quiet $false) -lt 0) {
         Write-Host "[错误] npm 升级 dsh 失败，请检查网络/npm 配置" -ForegroundColor Red
         exit 1
     }
 }
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+Refresh-Path
 if (-not (Get-Command dsh -ErrorAction SilentlyContinue)) {
     Write-Host "[错误] 安装完成但找不到 dsh 命令，请重开终端后重试" -ForegroundColor Red
     exit 1
@@ -273,15 +357,16 @@ if (-not (Get-Command dsh -ErrorAction SilentlyContinue)) {
 try { $dshVer = (& dsh --version 2>$null) } catch { $dshVer = "" }
 Write-Host "[2/5] dsh 就绪: $dshVer"
 
-# 3. 部署启动器 + 自身（供 -UpdateCheck 模式使用）
+# 3. 部署启动器 + 自身（供 -UpdateCheck/-StartService 模式使用）
 Write-Host "[3/5] 安装无窗口启动器与自动更新脚本 ..."
 if (-not (Test-Path -LiteralPath $LauncherSrc)) {
     Write-Host "[错误] 缺少 launcher.vbs（请与 install.ps1 放在同一目录）" -ForegroundColor Red
     exit 1
 }
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-Copy-Item -LiteralPath $LauncherSrc -Destination $LauncherDst -Force
-Copy-Item -LiteralPath $MyInvocation.MyCommand.Path -Destination (Join-Path $InstallDir "install.ps1") -Force
+if ($LauncherSrc -ne $LauncherDst) { Copy-Item -LiteralPath $LauncherSrc -Destination $LauncherDst -Force }
+$self = $MyInvocation.MyCommand.Path
+if ($self -ne (Join-Path $InstallDir "install.ps1")) { Copy-Item -LiteralPath $self -Destination (Join-Path $InstallDir "install.ps1") -Force }
 
 # 4. 后台启动 dsh web
 Write-Host "[4/5] 后台启动 dsh web ..."
@@ -311,9 +396,13 @@ $desktop = [Environment]::GetFolderPath('Desktop')
 New-DshShortcut -Path (Join-Path $desktop $ShortcutName) -Icon $icon
 New-DshShortcut -Path (Join-Path (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs") $ShortcutName) -Icon $icon
 
-Start-Process -FilePath $Wscript -ArgumentList "`"$LauncherDst`""
+Start-Process -FilePath $Wscript -ArgumentList "//B `"$LauncherDst`""
 Write-Host ""
 Write-Host "  安装完成！" -ForegroundColor Green
 Write-Host "  以后只点击桌面 '$ShortcutName' 即可: 后台更新 -> 启动 dsh web -> 打开 Edge 独立窗口" -ForegroundColor Green
 Write-Host "  后台地址: $Url" -ForegroundColor Green
 Write-Host ""
+}
+finally {
+    Release-Lock $lock
+}
