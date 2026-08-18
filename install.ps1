@@ -402,6 +402,8 @@ $desktop = [Environment]::GetFolderPath('Desktop')
 New-DshShortcut -Path (Join-Path $desktop $ShortcutName) -Icon $icon
 New-DshShortcut -Path (Join-Path (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs") $ShortcutName) -Icon $icon
 
+Release-Lock $lock
+$lock = $null
 Start-Process -FilePath $Wscript -ArgumentList "//B `"$LauncherDst`""
 Write-Host ""
 Write-Host "  安装完成！" -ForegroundColor Green
