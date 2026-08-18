@@ -74,7 +74,7 @@ function New-OfficialIcon {
         Invoke-WebRequest -Uri "$Url/favicon.svg" -OutFile $svgFile -UseBasicParsing -TimeoutSec 10
     } catch { return $false }
     $hashFile = Join-Path $InstallDir "favicon.hash"
-    if (Test-Path -LiteralPath $OutIcoPath -and (Test-Path -LiteralPath $hashFile)) {
+    if ((Test-Path -LiteralPath $OutIcoPath) -and (Test-Path -LiteralPath $hashFile)) {
         $old = (Get-Content -LiteralPath $hashFile -Raw -ErrorAction SilentlyContinue).Trim()
         $new = (Get-FileHash -LiteralPath $svgFile -Algorithm MD5).Hash
         if ($old -and $old -eq $new) {
