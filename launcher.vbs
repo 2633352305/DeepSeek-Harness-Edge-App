@@ -62,7 +62,7 @@ For i = 1 To 2
         Set sc = shell.CreateShortcut(lnk)
         sc.TargetPath = shell.ExpandEnvironmentStrings("%WINDIR%") & "\System32\wscript.exe"
         sc.Arguments = "//B """ & WScript.ScriptFullName & """"
-        sc.IconLocation = ScriptDir & "\deepseek.ico"
+        If fso.FileExists(ScriptDir & "\deepseek.ico") Then sc.IconLocation = ScriptDir & "\deepseek.ico"
         sc.Description = "DeepSeek Harness"
         sc.Save()
     End If

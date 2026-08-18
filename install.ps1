@@ -41,7 +41,7 @@ function Test-DshWeb {
     $conn = Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue
     if ($conn) {
         try {
-            $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+            $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 1
             if ($resp.StatusCode -eq 200) { return $true }
         } catch {}
     }
@@ -51,8 +51,7 @@ function Test-DshWeb {
 function Refresh-Path {
     $m = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
     $u = [System.Environment]::GetEnvironmentVariable("Path", "User")
-    $old = $env:Path
-    $env:Path = "$m;$u;$old"
+    $env:Path = (($m + ";" + $u + ";" + $env:Path) -split ";" | Where-Object { $_ } | Select-Object -Unique) -join ";"
 }
 
 function Acquire-Lock {
@@ -67,7 +66,6 @@ function Acquire-Lock {
 function Release-Lock {
     param($lock)
     if ($lock) { $lock.Dispose() }
-    Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
 }
 
 function Start-DshWebBackground {
@@ -214,7 +212,13 @@ function Stop-DshWebProcess {
     foreach ($c in $conn) {
         $proc = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
         if (-not $proc) { continue }
-        if ($proc.ProcessName -notmatch "node|dsh|cmd") { continue }
+        if ($proc.ProcessName -eq "cmd") {
+            try { Stop-Process -Id $c.OwningProcess -Force -ErrorAction Stop; $stopped = $true } catch {}
+            continue
+        }
+        if ($proc.ProcessName -notmatch "node|dsh") { continue }
+        $wmi = Get-CimInstance Win32_Process -Filter "ProcessId=$($c.OwningProcess)" -ErrorAction SilentlyContinue
+        if ($wmi -and $wmi.CommandLine -notmatch "dsh") { continue }
         try { Stop-Process -Id $c.OwningProcess -Force -ErrorAction Stop; $stopped = $true } catch {}
     }
     for ($i = 0; $i -lt 20; $i++) {
@@ -231,6 +235,7 @@ function Update-Dsh {
     $npmMajor = 0
     $npmVer = (& npm --version 2>$null) | Select-Object -Last 1
     if ($npmVer -match "^\d+") { $npmMajor = [int]$Matches[0] }
+    # npm>=11 默认拒绝依赖的安装脚本；以下为 dsh 实际依赖树中带原生构建脚本的包
     $base = @("install", "-g", "--fetch-timeout=120000")
     if ($npmMajor -ge 11) {
         $base += "--allow-scripts=@deepseek-ai/dsh-subprocess-local,koffi,node-pty,@google/genai,protobufjs"
@@ -253,14 +258,13 @@ if ($UpdateCheck) {
     $lock = Acquire-Lock
     if (-not $lock) { exit 0 }
     try {
+        if (Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue) { exit 0 }
         Refresh-Path
         $local = Get-DshVersion
         if (-not $local) { exit 0 }
         $latest = Get-LatestVersion
         if (-not $latest -or $latest -eq $local) { exit 0 }
-        if (Get-NetTCPConnection -LocalPort 3080 -State Listen -ErrorAction SilentlyContinue) { exit 0 }
         $r = Update-Dsh
-        if ($r -lt 0) { $r = Update-Dsh }
         if ($r -lt 0) {
             try { Add-Content -LiteralPath (Join-Path $InstallDir "dsh-update.log") -Value ("[{0}] 自动升级失败: $local -> $latest (npm 安装失败)" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss")) -Encoding UTF8 } catch {}
         }
@@ -341,7 +345,9 @@ elseif ($local -eq $latest) {
 else {
     if (Test-DshWeb) {
         Write-Host "      检测到 dsh web 正在运行，先停止以便安全升级（完成后自动重启）..." -ForegroundColor Yellow
-        Stop-DshWebProcess
+        if (-not (Stop-DshWebProcess) -and (Test-DshWeb)) {
+            Write-Host "      [警告] 未能停止占用 3080 的进程（可能不是 dsh），升级可能失败" -ForegroundColor Red
+        }
     }
     Write-Host "[2/5] 发现新版本: $local -> $latest，正在升级 ..."
     if ((Update-Dsh -Quiet $false) -lt 0) {

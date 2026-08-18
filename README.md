@@ -12,7 +12,6 @@ DeepSeek Harness **一键安装为桌面应用**：体积极小、无需任何�
 - **跟随官方更新**：每次点击快捷方式，后台自动检查 npm 官方源的最新版本并自动安装——官方发布即升级，零手动操作（服务运行中点击秒开不打扰；新版本在下次冷启动时自动应用）
 - **利用系统自带 Edge 框架**：独立应用窗口由系统 Edge 提供（`msedge --app=`），不下载任何浏览器、不占用额外存储
 - **一键安装**：自动安装 Node.js（缺失时）→ 自动安装/升级 dsh（已装且最新则秒级跳过）→ 创建桌面 + 开始菜单快捷方式
-- **官方图标**：安装时从 dsh web 自动提取官方鲸鱼图标（favicon），失败则回退默认图标（重跑安装器可重试）
 - **全程无窗口**：更新检查、服务启动、日志全部后台静默完成，不弹任何黑窗口
 - **只安装、不打扰**：日志在 `%LOCALAPPDATA%\dsh-edge-app\`，不需要时手动删快捷方式 + 卸载 npm 包即可（详见"如何移除"）
 
@@ -34,7 +33,13 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 以后每次使用：双击该快捷方式即可——脚本会自动完成"检查更新 + 启动服务 + 打开应用窗口"，无需再开命令行。冷启动时若检测到新版，会先完成升级再打开窗口（首次可能多等几十秒，之后每次点击秒开）。
 
-> **关于"在 Edge 里安装为应用"（edge://apps）**：`msedge --app=` 打开的是"应用模式"窗口，**不会**注册到 Edge 的 `edge://apps` 已安装应用列表（那是 PWA 专属）。dsh web 本身是标准 PWA，如想要系统级应用条目，可在 Edge 中打开 http://127.0.0.1:3080 后点击地址栏的"安装应用"按钮。本项目的快捷方式已等效实现独立应用窗口体验，且额外具备"自动更新 + 后台启动"能力（Edge 应用条目本身不提供启动服务的能力）。
+> **关于"在 Edge 里安装为应用"（edge://apps）**：`msedge --app=` 打开的是"应用模式"窗口，**不会**注册到 Edge 的 `edge://apps` 已安装应用列表（那是 PWA 专属）。dsh web 本身是标准 PWA，想要系统级应用条目时：
+>
+> 1. 在 Edge 中打开 http://127.0.0.1:3080
+> 2. 点击地址栏右侧的"应用"按钮 → "将此站点安装为应用" → "安装"
+> 3. 之后即可在 `edge://apps` 中看到该应用：可设置自启动、创建快捷方式，需要时也能**从这里卸载**（应用卡片 → 详情 → 卸载，或 Windows 设置 → 应用 → 已安装的应用）
+>
+> 注意：PWA 只是网页壳，**不负责启动 dsh 服务**（双击 PWA 图标时后台服务可能未运行），日常打开仍建议使用本项目的桌面快捷方式（自动完成"更新 + 启动服务 + 打开窗口"）。
 
 ## 工作原理
 
@@ -91,7 +96,6 @@ One-command installer for [DeepSeek Harness (dsh)](https://github.com/deepseek-a
 - **Always follows official releases**: every launch silently checks npm for the newest version and installs it automatically — when the official package updates, your app updates (clicks while the service is running open instantly; upgrades apply on the next cold start)
 - **Built on your system Edge**: the standalone app window (no tabs, no address bar) is provided by the Edge already on your PC — no browser download, no extra runtime
 - **One-command install**: auto-installs Node.js if missing → installs/upgrades dsh (skips in a second when already up to date) → creates desktop + Start Menu shortcuts
-- **Official icon**: auto-extracts the official favicon from dsh web at install time; falls back to a default icon if extraction fails (re-run the installer to retry)
 - **Fully windowless**: update checks, service start and logs all happen silently in the background
 - **Easy to remove**: just delete the shortcuts, run `npm uninstall -g @deepseek-ai/dsh` and remove `%LOCALAPPDATA%\dsh-edge-app\` — your workspace and documents are untouched
 
@@ -109,7 +113,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 Then just double-click the **"DeepSeek Harness"** shortcut on your desktop — it handles everything (check updates + start server + open app window). On a cold start with a pending update, the upgrade runs first, so the first click may take a few dozen seconds; afterwards every click opens instantly.
 
-> **Why it doesn't appear in `edge://apps`**: `msedge --app=` opens an "app mode" window but does not register in Edge's installed-apps list (PWA-only). dsh web is a standard PWA — if you want a system-level entry in `edge://apps`, open http://127.0.0.1:3080 in Edge and click "Install app" in the address bar. This project's shortcut already delivers the same standalone-window experience plus auto-update and background start (which an Edge app entry does not provide).
+> **Install as a real Edge app (`edge://apps`)**: `msedge --app=` opens an "app mode" window but does not register in Edge's installed-apps list (PWA-only). dsh web is a standard PWA, so for a system-level entry: open http://127.0.0.1:3080 in Edge → click the "Apps" button next to the address bar → "Install this site as an app" → "Install". It then appears in `edge://apps`, where you can enable auto-start, create shortcuts, and **uninstall it** (app card → Details → Uninstall, or Windows Settings → Apps → Installed apps). Note the PWA is just a web shell — it does not start the dsh service, so use this project's shortcut for daily use (update + service start + window in one click).
 
 ### How it works
 
